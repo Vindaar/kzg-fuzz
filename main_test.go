@@ -153,7 +153,7 @@ func FuzzVerifyKZGProof(f *testing.F) {
 	})
 }
 
-func FuzzVerifyBlobKZGProof(f *testing.F) {
+func FuzzVerifyBlobKZGProofSingle(f *testing.F) {
 	f.Fuzz(func(t *testing.T, seed int64) {
 		cKzgBlob, goKzgBlob, ok := GetRandBlob(t, seed)
 		if !ok {
