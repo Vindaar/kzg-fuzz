@@ -1,11 +1,14 @@
 module fuzz
 
-go 1.19
+go 1.21.5
+
+toolchain go1.22.0
 
 require (
 	github.com/crate-crypto/go-kzg-4844 v0.7.0
 	github.com/ethereum/c-kzg-4844 v0.4.1
 	github.com/holiman/uint256 v1.2.1
+	github.com/mratsim/constantine v0.0.0-20240614095347-9fe5e495f7f8
 	github.com/protolambda/go-kzg v0.0.0-20221224134646-c91cee5e954e
 )
 
