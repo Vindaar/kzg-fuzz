@@ -12,6 +12,9 @@ require (
 	github.com/protolambda/go-kzg v0.0.0-20221224134646-c91cee5e954e
 )
 
+// use our local constantine build from `build_constantine.sh`
+replace github.com/mratsim/constantine => ./constantine
+
 require (
 	github.com/bits-and-blooms/bitset v1.5.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
