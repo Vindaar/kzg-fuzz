@@ -6,6 +6,7 @@ import (
 
 	gokzg "github.com/crate-crypto/go-kzg-4844"
 	ckzg "github.com/ethereum/c-kzg-4844/bindings/go"
+	ctt "github.com/mratsim/constantine/constantine-go"
 	"github.com/holiman/uint256"
 )
 
@@ -29,21 +30,23 @@ func Mutate(data []byte, seed int64) []byte {
 	return data
 }
 
-func GetRandFieldElement(t *testing.T, seed int64) (ckzg.Bytes32, [32]byte, bool) {
+func GetRandFieldElement(t *testing.T, seed int64) (ckzg.Bytes32, [32]byte, ctt.EthKzgChallenge, bool) {
 	t.Helper()
 	rand.Seed(seed)
 	fieldElementBytes := make([]byte, ckzg.BytesPerFieldElement)
 	_, err := rand.Read(fieldElementBytes)
 	if err != nil {
-		return ckzg.Bytes32{}, [32]byte{}, false
+		return ckzg.Bytes32{}, [32]byte{}, ctt.EthKzgChallenge{}, false
 	}
 	var cKzgFieldElement ckzg.Bytes32
+	var cttKzgFieldElement ctt.EthKzgChallenge
 
 	action := Action(seed % 3)
 	if action == actionRandom {
 		// Provide a completely random field element.
 		copy(cKzgFieldElement[:], fieldElementBytes[:])
-		return cKzgFieldElement, cKzgFieldElement, true
+		copy(cttKzgFieldElement[:], fieldElementBytes[:])
+		return cKzgFieldElement, cKzgFieldElement, cttKzgFieldElement, true
 	} else {
 		// Provide a valid/canonical field element.
 		var BlsModulus = new(uint256.Int)
@@ -60,7 +63,7 @@ func GetRandFieldElement(t *testing.T, seed int64) (ckzg.Bytes32, [32]byte, bool
 		}
 
 		copy(cKzgFieldElement[:], canonicalFieldElementBytes[:])
-		return cKzgFieldElement, canonicalFieldElementBytes, true
+		return cKzgFieldElement, canonicalFieldElementBytes, canonicalFieldElementBytes, true
 	}
 }
 
@@ -83,7 +86,7 @@ func GetRandCanonicalFieldElement(t *testing.T, seed int64) (ckzg.Bytes32, [32]b
 	return cKzgFieldElement, canonicalFieldElementBytes, true
 }
 
-func GetRandBlob(t *testing.T, seed int64) (ckzg.Blob, gokzg.Blob, bool) {
+func GetRandBlob(t *testing.T, seed int64) (ckzg.Blob, gokzg.Blob, ctt.EthBlob, bool) {
 	t.Helper()
 	rand.Seed(seed)
 
@@ -93,22 +96,25 @@ func GetRandBlob(t *testing.T, seed int64) (ckzg.Blob, gokzg.Blob, bool) {
 		randomBytes := make([]byte, ckzg.BytesPerBlob)
 		_, err := rand.Read(randomBytes)
 		if err != nil {
-			return ckzg.Blob{}, gokzg.Blob{}, false
+			return ckzg.Blob{}, gokzg.Blob{}, ctt.EthBlob{}, false
 		}
 		var cKzgBlob ckzg.Blob
 		copy(cKzgBlob[:], randomBytes)
 		var goKzgBlob gokzg.Blob
 		copy(goKzgBlob[:], randomBytes)
-		return cKzgBlob, goKzgBlob, true
+		var cttKzgBlob ctt.EthBlob
+		copy(cttKzgBlob[:], randomBytes)
+		return cKzgBlob, goKzgBlob, cttKzgBlob, true
 	} else {
 		// Provide a valid/canonical blob.
 		var cKzgBlob ckzg.Blob
 		var goKzgBlob gokzg.Blob
+		var cttKzgBlob ctt.EthBlob
 		for i := 0; i < ckzg.BytesPerBlob; i += ckzg.BytesPerFieldElement {
 			newSeed := rand.Int63()
 			_, canonicalFieldElementBytes, ok := GetRandCanonicalFieldElement(t, newSeed)
 			if !ok {
-				return ckzg.Blob{}, gokzg.Blob{}, false
+				return ckzg.Blob{}, gokzg.Blob{}, ctt.EthBlob{}, false
 			}
 
 			// Mutate the data, which may make it invalid.
@@ -120,8 +126,9 @@ func GetRandBlob(t *testing.T, seed int64) (ckzg.Blob, gokzg.Blob, bool) {
 
 			copy(cKzgBlob[i:i+ckzg.BytesPerFieldElement], canonicalFieldElementBytes[:])
 			copy(goKzgBlob[i:i+ckzg.BytesPerFieldElement], canonicalFieldElementBytes[:])
+			copy(cttKzgBlob[i:i+ckzg.BytesPerFieldElement], canonicalFieldElementBytes[:])
 		}
-		return cKzgBlob, goKzgBlob, true
+		return cKzgBlob, goKzgBlob, cttKzgBlob, true
 	}
 }
 
@@ -140,7 +147,7 @@ func GetRandG1(t *testing.T, seed int64) ([]byte, bool) {
 		return randomBytes, true
 	} else {
 		// Provide a valid/canonical g1 point.
-		blob, _, ok := GetRandBlob(t, seed)
+		blob, _, _, ok := GetRandBlob(t, seed)
 		if ok != false {
 			return []byte{}, false
 		}
@@ -160,28 +167,32 @@ func GetRandG1(t *testing.T, seed int64) ([]byte, bool) {
 	}
 }
 
-func GetRandCommitment(t *testing.T, seed int64) (ckzg.Bytes48, gokzg.KZGCommitment, bool) {
+func GetRandCommitment(t *testing.T, seed int64) (ckzg.Bytes48, gokzg.KZGCommitment, ctt.EthKzgCommitment, bool) {
 	t.Helper()
 	commitmentBytes, ok := GetRandG1(t, seed)
 	if !ok {
-		return ckzg.Bytes48{}, gokzg.KZGCommitment{}, false
+		return ckzg.Bytes48{}, gokzg.KZGCommitment{}, ctt.EthKzgCommitment{}, false
 	}
 	var cKzgCommitment ckzg.Bytes48
 	copy(cKzgCommitment[:], commitmentBytes)
 	var goKzgCommitment gokzg.KZGCommitment
 	copy(goKzgCommitment[:], commitmentBytes)
-	return cKzgCommitment, goKzgCommitment, true
+	var cttKzgCommitment ctt.EthKzgCommitment
+	copy(cttKzgCommitment[:], commitmentBytes)
+	return cKzgCommitment, goKzgCommitment, cttKzgCommitment, true
 }
 
-func GetRandProof(t *testing.T, seed int64) (ckzg.Bytes48, gokzg.KZGProof, bool) {
+func GetRandProof(t *testing.T, seed int64) (ckzg.Bytes48, gokzg.KZGProof, ctt.EthKzgProof, bool) {
 	t.Helper()
 	proofBytes, ok := GetRandG1(t, seed)
 	if !ok {
-		return ckzg.Bytes48{}, gokzg.KZGProof{}, false
+		return ckzg.Bytes48{}, gokzg.KZGProof{}, ctt.EthKzgProof{}, false
 	}
 	var cKzgProof ckzg.Bytes48
 	copy(cKzgProof[:], proofBytes)
 	var goKzgProof gokzg.KZGProof
 	copy(goKzgProof[:], proofBytes)
-	return cKzgProof, goKzgProof, true
+	var cttKzgProof ctt.EthKzgProof
+	copy(cttKzgProof[:], proofBytes)
+	return cKzgProof, goKzgProof, cttKzgProof, true
 }
